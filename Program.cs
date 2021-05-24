@@ -66,11 +66,11 @@ namespace ForceWT
                 default:
                     throw new ArgumentException("Unkown application!");
             }
-
-            // redirect handles
+            
             STARTUPINFO si = new STARTUPINFO();
             si.cb = Marshal.SizeOf(si);
 #if REDIRECT_STD
+            // redirect handles
             si.hStdError = GetStdHandle(STD.OUTPUT_HANDLE);
             si.hStdOutput = GetStdHandle(STD.OUTPUT_HANDLE);
             si.hStdInput = GetStdHandle(STD.INPUT_HANDLE);
@@ -95,7 +95,7 @@ namespace ForceWT
             bool isDebugging = true;
             while (isDebugging && WaitForDebugEvent(ref debugEvent, INFINITE))
             {
-
+                // exit debugger loop as soon as process terminates
                 if (debugEvent.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT)
                     isDebugging = false;
 
@@ -116,6 +116,7 @@ namespace ForceWT
             WaitForSingleObject(pi.hProcess, INFINITE);
 
 #if DEBUG
+            // output process exit code
             Console.WriteLine();
             uint exitCode;
             GetExitCodeProcess(pi.hProcess, out exitCode);

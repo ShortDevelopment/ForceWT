@@ -1,10 +1,12 @@
 ﻿
 #define USE_DEBUGGER
-//#define REDIRECT_STD
+#define SHOW_COPYRIGHT
+// #define REDIRECT_STD
 // #define USE_UTF8
 
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -16,19 +18,34 @@ namespace ForceWT
         static void Main(string[] args)
         {
 
+            // launch WindowsTerminal if we are launched standalone
+            if (IsStandalone())
+            {
+                Process.Start(new ProcessStartInfo()
+                {
+                    FileName = "wt.exe",
+                    Arguments = FormatArgs(args),
+                    UseShellExecute = false
+                });
+                return;
+            }
+
             string applicationName = "powershell";
             if (args.Length > 0)
                 applicationName = Path.GetFileNameWithoutExtension(args[0]).ToLower();
 
+#if SHOW_COPYRIGHT
             // copyright
             Console.WriteLine("Force Windows Terminal");
             Console.WriteLine($"© {DateTime.Now.ToString("yyyy")} Lukas Kurz alias ShortDevelopment");
             Console.WriteLine();
+#endif
 
 #if DEBUG
             // output args
-            Console.Write("Args: ");
-            Console.WriteLine(FormatArgs(args));
+            Console.WriteLine($"Args: {FormatArgs(args)}");
+            Console.WriteLine($"IsStandalone: {IsStandalone()}");
+            Console.WriteLine();
 #endif
 
 #if USE_UTF8
@@ -67,26 +84,43 @@ namespace ForceWT
 #if !USE_DEBUGGER
             flags = 0;
 #endif
-            if (!CreateProcess(null, (args.Length > 0) ? FormatArgs(args) : applicationName, IntPtr.Zero, IntPtr.Zero, true, flags, IntPtr.Zero, null, ref si, out pi))
+            if (!CreateProcess(null, (args.Length > 0) ? FormatArgs(args) : applicationName, IntPtr.Zero, IntPtr.Zero, false, flags, IntPtr.Zero, null, ref si, out pi))
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
 
+#if USE_DEBUGGER
             // dummy debugger loop
             DEBUG_EVENT debugEvent = new DEBUG_EVENT();
             bool isDebugging = true;
             while (isDebugging && WaitForDebugEvent(ref debugEvent, INFINITE))
             {
+
                 if (debugEvent.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT)
-                {
                     isDebugging = false;
-                }
-                // always continue
-                ContinueDebugEvent(debugEvent.dwProcessId, debugEvent.dwThreadId, ContinueStatus.DBG_CONTINUE);
+
+                // always continue ...
+                ContinueStatus dwContinueStatus = ContinueStatus.DBG_CONTINUE;
+
+                // ... execpt we have an exception!
+                // if we don't do this powershell will crash!
+                if (debugEvent.dwDebugEventCode == EXCEPTION_DEBUG_EVENT)
+                    dwContinueStatus = ContinueStatus.DBG_EXCEPTION_NOT_HANDLED;
+
+                // continue debugger loop
+                ContinueDebugEvent(debugEvent.dwProcessId, debugEvent.dwThreadId, dwContinueStatus);
             }
+#endif
 
             // wait for process to terminate
             WaitForSingleObject(pi.hProcess, INFINITE);
+
+#if DEBUG
+            Console.WriteLine();
+            uint exitCode;
+            GetExitCodeProcess(pi.hProcess, out exitCode);
+            Console.WriteLine($"ExitCode: {exitCode}");
+#endif
 
         }
 
@@ -94,6 +128,16 @@ namespace ForceWT
         {
             return string.Join(" ", args.Select((arg) => $"\"{arg}\""));
         }
+
+        protected static bool IsStandalone()
+        {
+            IntPtr hwnd = GetConsoleWindow();
+            uint pId;
+            GetWindowThreadProcessId(hwnd, out pId);
+            return Process.GetCurrentProcess().ProcessName == Process.GetProcessById((int)pId).ProcessName;
+        }
+
+        #region Win API
 
         #region Security
         [StructLayout(LayoutKind.Sequential)]
@@ -184,6 +228,7 @@ namespace ForceWT
         const int DEBUG_ONLY_THIS_PROCESS = 0x00000002;
 
         const int EXIT_PROCESS_DEBUG_EVENT = 5;
+        const int EXCEPTION_DEBUG_EVENT = 1;
 
         [DllImport("kernel32.dll", EntryPoint = "WaitForDebugEvent")]
         protected static extern bool WaitForDebugEvent(ref DEBUG_EVENT lpDebugEvent, uint dwMilliseconds);
@@ -209,10 +254,27 @@ namespace ForceWT
         }
         #endregion
 
+        #region ExitCode
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        protected static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+        #endregion
+
         #region Wait
         [DllImport("kernel32.dll", SetLastError = true)]
         protected static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
         const UInt32 INFINITE = 0xFFFFFFFF;
         #endregion
+
+        #region Console Window
+        [DllImport("kernel32.dll")]
+        protected static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        #endregion
+
+        #endregion
+
     }
 }

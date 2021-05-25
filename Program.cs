@@ -31,7 +31,7 @@ namespace ForceWT
                 // -d  => set working directory
                 // application name  =>  cmd or ps
                 // GetCommandLine() Gets unformated win32 commandline
-                string arguments = $"-w 0 -d \"{Environment.CurrentDirectory}\" {applicationName} \"{GetCommandLine()}\"";
+                string arguments = $"-w 0 -d \"{Environment.CurrentDirectory}\" {applicationName} {GetCommandLine().Replace("/c", "/k").Replace("\"", "\\\"")}";
                 Process.Start(new ProcessStartInfo()
                 {
                     FileName = "wt.exe",
@@ -40,7 +40,7 @@ namespace ForceWT
                 });
 #if DEBUG
                 Console.WriteLine(arguments);
-                // Console.ReadLine();
+                Console.ReadLine();
 #endif
                 return;
             }

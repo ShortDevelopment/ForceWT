@@ -17,4 +17,5 @@ Windows Registry Editor Version 5.00
  - [ ] Testing
  - [ ] Prevent console flickering
  - [ ] Installer
+ - [ ] Console handler (e.g. `Ctrl + C`)
  - [ ] ...

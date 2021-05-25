@@ -18,21 +18,31 @@ namespace ForceWT
         static void Main(string[] args)
         {
 
-            // launch WindowsTerminal if we are launched standalone
-            if (IsStandalone())
-            {
-                Process.Start(new ProcessStartInfo()
-                {
-                    FileName = "wt.exe",
-                    Arguments = FormatArgs(args),
-                    UseShellExecute = false
-                });
-                return;
-            }
-
+            // get application name
             string applicationName = "powershell";
             if (args.Length > 0)
                 applicationName = Path.GetFileNameWithoutExtension(args[0]).ToLower();
+
+            // launch WindowsTerminal if we are launched standalone
+            if (IsStandalone())
+            {
+                // format arguments
+                // -w 0  => opens in already opened instance (only in WT Preview!)
+                // application name  =>  cmd or ps
+                // GetCommandLine() Gets unformated win32 commandline
+                string arguments = $"-w 0 {applicationName} \"{GetCommandLine()}\"";
+                Process.Start(new ProcessStartInfo()
+                {
+                    FileName = "wt.exe",
+                    Arguments = arguments,
+                    UseShellExecute = false
+                });
+#if DEBUG
+                Console.WriteLine(arguments);
+                // Console.ReadLine();
+#endif
+                return;
+            }
 
 #if SHOW_COPYRIGHT
             // copyright
@@ -66,7 +76,7 @@ namespace ForceWT
                 default:
                     throw new ArgumentException("Unkown application!");
             }
-            
+
             STARTUPINFO si = new STARTUPINFO();
             si.cb = Marshal.SizeOf(si);
 #if REDIRECT_STD
@@ -84,7 +94,7 @@ namespace ForceWT
 #if !USE_DEBUGGER
             flags = 0;
 #endif
-            if (!CreateProcess(null, (args.Length > 0) ? FormatArgs(args) : applicationName, IntPtr.Zero, IntPtr.Zero, false, flags, IntPtr.Zero, null, ref si, out pi))
+            if (!CreateProcess(null, (args.Length > 0) ? GetCommandLine() : applicationName, IntPtr.Zero, IntPtr.Zero, false, flags, IntPtr.Zero, null, ref si, out pi))
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
@@ -125,9 +135,25 @@ namespace ForceWT
 
         }
 
-        protected static string FormatArgs(string[] args)
+        protected static string FormatArgs(string[] args, bool includeFirst = true)
         {
+            if (!includeFirst)
+            {
+                var list = args.ToList();
+                if (args.Count() > 0)
+                    list.RemoveAt(0);
+                args = list.ToArray();
+            }
             return string.Join(" ", args.Select((arg) => $"\"{arg}\""));
+        }
+
+        protected static string GetCommandLine()
+        {            
+            string cmd = Marshal.PtrToStringAuto(GetCommandLineNative());
+            string location = typeof(Program).Assembly.Location;
+            cmd = cmd.Replace($"\"{location}\"", "");
+            cmd = cmd.Replace($"{location}", "");
+            return cmd.Trim();
         }
 
         protected static bool IsStandalone()
@@ -275,6 +301,11 @@ namespace ForceWT
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
         #endregion
 
+        #endregion
+
+        #region Command Line
+        [DllImport("kernel32.dll", EntryPoint = "GetCommandLine", CharSet = CharSet.Auto)]
+        private static extern System.IntPtr GetCommandLineNative();
         #endregion
 
     }

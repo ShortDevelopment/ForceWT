@@ -1,5 +1,7 @@
 # ForceWT
-This application will open the WindowsTerminal on every attempt of opening `cmd.exe`or `powershell.exe`!   
+This application will open the WindowsTerminal on every attempt of opening `cmd.exe`or `powershell.exe`.   
+The commandline will be preserved, so you can execute `*.bat` files like normal but in WT!   
+## Setup
 It works using `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options`:   
 
 ```

@@ -40,7 +40,7 @@ namespace ForceWT
                 });
 #if DEBUG
                 Console.WriteLine(arguments);
-                Console.ReadLine();
+                // Console.ReadLine();
 #endif
                 return;
             }

@@ -28,9 +28,10 @@ namespace ForceWT
             {
                 // format arguments
                 // -w 0  => opens in already opened instance (only in WT Preview!)
+                // -d  => set working directory
                 // application name  =>  cmd or ps
                 // GetCommandLine() Gets unformated win32 commandline
-                string arguments = $"-w 0 {applicationName} \"{GetCommandLine()}\"";
+                string arguments = $"-w 0 -d \"{Environment.CurrentDirectory}\" {applicationName} \"{GetCommandLine()}\"";
                 Process.Start(new ProcessStartInfo()
                 {
                     FileName = "wt.exe",
@@ -150,10 +151,15 @@ namespace ForceWT
         protected static string GetCommandLine()
         {            
             string cmd = Marshal.PtrToStringAuto(GetCommandLineNative());
-            string location = typeof(Program).Assembly.Location;
+            string location = GetAssemblyLocation();
             cmd = cmd.Replace($"\"{location}\"", "");
             cmd = cmd.Replace($"{location}", "");
             return cmd.Trim();
+        }
+
+        protected static string GetAssemblyLocation()
+        {
+            return typeof(Program).Assembly.Location;
         }
 
         protected static bool IsStandalone()
